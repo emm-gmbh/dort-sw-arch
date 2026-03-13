@@ -1,0 +1,8 @@
+using sysbus
+mach create
+machine LoadPlatformDescription @platforms/boards/mpfs-icicle-kit.repl
+sysbus LoadELF "X:\test-results\mpfs-rpmsg-master-fault.elf"
+emulation RunFor "00:00:00.050"
+sysbus ReadDoubleWord 0x91809f40
+sysbus ReadDoubleWord 0x91809f44
+quit
