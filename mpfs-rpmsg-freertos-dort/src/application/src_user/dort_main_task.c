@@ -6,7 +6,6 @@
 
 
 
-
 /* Temporary, just proves the task runs.
    We will replace this with  bringup + event loop next. */
 void DortMainTask(void *pvParameters)
@@ -25,7 +24,7 @@ void DortMainTask(void *pvParameters)
 
 
 
-   post_bringup_start(); // instead of calling bringzp functions directly, we post an event
+   post_bringup_start(); // instead of calling bringup functions directly, we post an event
 
 
 /* Main dispatch loop */
