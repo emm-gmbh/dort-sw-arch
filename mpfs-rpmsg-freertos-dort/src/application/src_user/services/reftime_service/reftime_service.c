@@ -23,7 +23,7 @@ void reftime_service_bringup_start(void)
     s_state = REFTIME_WAIT_VALID;
 
     // İstersen SIM modda otomatik valid yapabilirsin:
-    // reftime_service_simulate_valid();
+    reftime_service_simulate_valid();
 }
 
 void reftime_service_simulate_valid(void)

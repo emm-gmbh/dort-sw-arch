@@ -21,6 +21,7 @@ void ccu_service_bringup_start(void)
 {
     s_state = CCU_SVC_BRINGUP;
     /* Donanım yok: ready'yi sen tetikleyeceksin */
+    ccu_service_simulate_ready();
 }
 
 void ccu_service_simulate_ready(void)

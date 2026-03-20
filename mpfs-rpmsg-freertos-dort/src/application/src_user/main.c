@@ -2,6 +2,8 @@
 #include "core/event_queue.h"
 #include <stdbool.h>
 
+#include "mpfs_hal/mss_hal.h"
+
 #include "services/reftime_service/reftime_service.h"
 #include "services/rrdu_service/rrdu_service.h"
 #include "services/olu_service/olu_service.h"
@@ -19,6 +21,9 @@ int main(void)
     eventq_init();
     bringup_ctx_t bu;
     bringup_init(&bu);
+
+    /* RRDU low-level path drives GPIO2 reset/start pins on Icicle Kit. */
+    (void)mss_config_clk_rst(MSS_PERIPH_GPIO2, (uint8_t)MPFS_HAL_FIRST_HART, PERIPHERAL_ON);
 
     reftime_service_init();
     rrdu_service_init();  // callback register + irq enable

@@ -21,6 +21,7 @@ void hcu_service_bringup_start(void)
 {
     s_state = HCU_SVC_BRINGUP;
     /* Donanım yok: ready'yi sen tetikleyeceksin */
+    hcu_service_simulate_ready();
 }
 
 void hcu_service_simulate_ready(void)

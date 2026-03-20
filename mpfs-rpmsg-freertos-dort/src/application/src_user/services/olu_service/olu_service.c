@@ -21,6 +21,7 @@ void olu_service_bringup_start(void)
 {
     s_state = OLU_SVC_BRINGUP;
     /* Donanım yok: ready'yi sen tetikleyeceksin */
+    olu_service_simulate_ready();
 }
 
 void olu_service_simulate_ready(void)

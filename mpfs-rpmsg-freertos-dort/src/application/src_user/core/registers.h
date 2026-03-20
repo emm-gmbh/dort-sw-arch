@@ -4,11 +4,14 @@
 /* RRDU Register Map */
 
 #define RRDU_COUNT_BASE_ADDR        0x65000000u
+#define RRDU_READY_BASE_ADDR        0x20122000u
 
 #define RRDU_MEAS_COARSE_OFFSET     0x00u
 #define RRDU_REF_COARSE_OFFSET      0x04u
 #define RRDU_MEAS_FINE_OFFSET       0x08u
 #define RRDU_REF_FINE_OFFSET        0x0Cu
+
+#define RRDU_STATUS_READY_MASK      0x00000008u
 
 typedef struct
 {
@@ -19,6 +22,7 @@ typedef struct
 } rrdu_count_regs_t;
 
 #define RRDU_COUNT_REGS ((rrdu_count_regs_t *)RRDU_COUNT_BASE_ADDR)
+#define RRDU_READY_REG (*(volatile uint32_t *)RRDU_READY_BASE_ADDR)
 
 
 /* PATU Register Map */

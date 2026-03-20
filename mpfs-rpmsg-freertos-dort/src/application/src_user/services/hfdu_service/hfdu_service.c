@@ -21,6 +21,7 @@ void hfdu_service_bringup_start(void)
 {
     s_state = HFDU_SVC_BRINGUP;
     /* Donanım yok: ready'yi sen tetikleyeceksin */
+    hfdu_service_simulate_ready();
 }
 
 void hfdu_service_simulate_ready(void)

@@ -21,6 +21,7 @@ void ru_service_bringup_start(void)
 {
     s_state = RU_SVC_BRINGUP;
     /* Donanım yok: ready'yi sen tetikleyeceksin */
+    ru_service_simulate_ready();
 }
 
 void ru_service_simulate_ready(void)

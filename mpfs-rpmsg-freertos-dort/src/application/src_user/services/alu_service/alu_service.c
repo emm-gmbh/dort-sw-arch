@@ -21,6 +21,7 @@ void alu_service_bringup_start(void)
 {
     s_state = ALU_SVC_BRINGUP;
     /* Donanım yok: ready'yi sen tetikleyeceksin */
+    alu_service_simulate_ready();
 }
 
 void alu_service_simulate_ready(void)

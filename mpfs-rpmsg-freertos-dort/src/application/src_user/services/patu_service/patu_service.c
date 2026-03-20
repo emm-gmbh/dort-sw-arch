@@ -21,6 +21,7 @@ void patu_service_bringup_start(void)
 {
     s_state = PATU_SVC_BRINGUP;
     /* Donanım yok: ready'yi sen tetikleyeceksin */
+    patu_service_simulate_ready();
 }
 
 void patu_service_simulate_ready(void)

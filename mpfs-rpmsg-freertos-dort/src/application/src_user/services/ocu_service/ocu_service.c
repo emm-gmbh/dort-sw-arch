@@ -21,6 +21,7 @@ void ocu_service_bringup_start(void)
 {
     s_state = OCU_SVC_BRINGUP;
     /* Donanım yok: ready'yi sen tetikleyeceksin */
+    ocu_service_simulate_ready();
 }
 
 void ocu_service_simulate_ready(void)

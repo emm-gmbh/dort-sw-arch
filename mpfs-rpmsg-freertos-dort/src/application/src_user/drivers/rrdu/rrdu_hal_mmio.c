@@ -4,18 +4,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "core/registers.h"
 #include "drivers/mss/mss_gpio/mss_gpio.h"
-
-#ifndef RRDU_MMIO_COUNT_BASE_ADDR
-#define RRDU_MMIO_COUNT_BASE_ADDR 0x65000000u
-#endif
 
 #ifndef RRDU_MMIO_READY_TIMEOUT_LOOPS
 #define RRDU_MMIO_READY_TIMEOUT_LOOPS 12000000u
-#endif
-
-#ifndef RRDU_MMIO_DONE_TIMEOUT_LOOPS
-#define RRDU_MMIO_DONE_TIMEOUT_LOOPS 30000000u
 #endif
 
 #ifndef RRDU_MMIO_ENABLE_PULSE_LOOPS
@@ -24,18 +17,6 @@
 
 #define RRDU_MMIO_RESET_PIN MSS_GPIO_1
 #define RRDU_MMIO_START_PIN MSS_GPIO_0
-#define RRDU_MMIO_FINE_DONE_MASK MSS_GPIO_2_MASK
-#define RRDU_MMIO_READY_MASK MSS_GPIO_3_MASK
-#define RRDU_MMIO_COARSE_DONE_MASK MSS_GPIO_4_MASK
-
-/* Register order taken from the provided RRDU implementation. */
-#define RRDU_MMIO_MEAS_COARSE_OFF 0x0u
-#define RRDU_MMIO_REF_COARSE_OFF  0x4u
-#define RRDU_MMIO_MEAS_FINE_OFF   0x8u
-#define RRDU_MMIO_REF_FINE_OFF    0xCu
-
-static volatile uint32_t *const s_mmio =
-    (volatile uint32_t *)(uintptr_t)RRDU_MMIO_COUNT_BASE_ADDR;
 
 static uint32_t s_stat = 0u;
 static uint32_t s_fault = 0u;
@@ -46,9 +27,9 @@ static rrdu_hal_meas_cb_t s_cb = NULL;
 static void *s_cb_user = NULL;
 static int s_meas_inflight = 0;
 
-static uint32_t rrdu_mmio_gpio_inputs(void)
+static bool rrdu_mmio_is_ready(void)
 {
-    return MSS_GPIO_get_inputs(GPIO2_LO);
+    return (RRDU_READY_REG & RRDU_STATUS_READY_MASK) != 0u;
 }
 
 static void rrdu_mmio_delay(volatile uint32_t loops)
@@ -57,47 +38,28 @@ static void rrdu_mmio_delay(volatile uint32_t loops)
     }
 }
 
-static bool rrdu_mmio_wait_mask(uint32_t mask, bool high, uint32_t timeout_loops)
+static bool rrdu_mmio_wait_ready(bool ready, uint32_t timeout_loops)
 {
     while (timeout_loops-- > 0u) {
-        uint32_t inputs = rrdu_mmio_gpio_inputs();
-        bool level = (inputs & mask) != 0u;
-        if (level == high) {
+        if (rrdu_mmio_is_ready() == ready) {
             return true;
         }
     }
     return false;
 }
 
-static uint32_t rrdu_mmio_read_reg(uint32_t offset)
-{
-    return s_mmio[offset / sizeof(uint32_t)];
-}
-
 static void rrdu_mmio_update_stat(void)
 {
-    uint32_t inputs = rrdu_mmio_gpio_inputs();
-    s_stat = 0u;
-    if ((inputs & RRDU_MMIO_READY_MASK) != 0u) {
-        s_stat |= (1u << 0);
-    }
-    if ((inputs & RRDU_MMIO_FINE_DONE_MASK) != 0u) {
-        s_stat |= (1u << 1);
-    }
-    if ((inputs & RRDU_MMIO_COARSE_DONE_MASK) != 0u) {
-        s_stat |= (1u << 2);
-    }
+    s_stat = RRDU_READY_REG;
 }
 
 static rrdu_hal_status_t rrdu_mmio_run_measurement(void)
 {
-    /* Reset state machines in FPGA and wait for ready/idle. */
+    s_fault = 0u;
+
+    /* Reset state machines in FPGA before a new bring-up measurement. */
     MSS_GPIO_set_output(GPIO2_LO, RRDU_MMIO_RESET_PIN, 1u);
-    if (!rrdu_mmio_wait_mask(RRDU_MMIO_READY_MASK, true, RRDU_MMIO_READY_TIMEOUT_LOOPS)) {
-        s_fault |= 0x10u;
-        MSS_GPIO_set_output(GPIO2_LO, RRDU_MMIO_RESET_PIN, 0u);
-        return RRDU_HAL_ERR;
-    }
+    rrdu_mmio_delay(RRDU_MMIO_ENABLE_PULSE_LOOPS);
     MSS_GPIO_set_output(GPIO2_LO, RRDU_MMIO_RESET_PIN, 0u);
 
     /* Start measurement with a short pulse. */
@@ -105,17 +67,22 @@ static rrdu_hal_status_t rrdu_mmio_run_measurement(void)
     rrdu_mmio_delay(RRDU_MMIO_ENABLE_PULSE_LOOPS);
     MSS_GPIO_set_output(GPIO2_LO, RRDU_MMIO_START_PIN, 0u);
 
-    /* Wait until fine and coarse done lines are asserted. */
-    if (!rrdu_mmio_wait_mask(RRDU_MMIO_FINE_DONE_MASK, true, RRDU_MMIO_DONE_TIMEOUT_LOOPS)) {
+    /*
+     * Ready goes low while the subsystem is measuring and returns high when a
+     * new measurement has completed. Waiting for the low->high transition
+     * avoids accepting a stale ready level from a previous cycle.
+     */
+    if (!rrdu_mmio_wait_ready(false, RRDU_MMIO_READY_TIMEOUT_LOOPS)) {
         s_fault |= 0x01u;
         return RRDU_HAL_ERR;
     }
-    if (!rrdu_mmio_wait_mask(RRDU_MMIO_COARSE_DONE_MASK, true, RRDU_MMIO_DONE_TIMEOUT_LOOPS)) {
+    if (!rrdu_mmio_wait_ready(true, RRDU_MMIO_READY_TIMEOUT_LOOPS)) {
         s_fault |= 0x02u;
         return RRDU_HAL_ERR;
     }
 
-    s_last_raw = rrdu_mmio_read_reg(RRDU_MMIO_MEAS_FINE_OFF);
+    s_last_raw = RRDU_COUNT_REGS->meas_fine;
+    rrdu_mmio_update_stat();
     return RRDU_HAL_OK;
 }
 
